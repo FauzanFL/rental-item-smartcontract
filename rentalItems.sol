@@ -89,10 +89,6 @@ contract RentalContract {
         emit OwnerConfirmedReturn(_itemId, msg.sender);
     }
 
-        // address payable renter;
-        // uint256 amount;
-        // uint256 startTime;
-        // bool isReturned;
     function getRentals() external view returns (
         uint256[] memory itemIds,
         string[] memory itemNames,
