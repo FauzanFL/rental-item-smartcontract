@@ -2,118 +2,156 @@
 pragma solidity ^0.8.0;
 
 contract RentalContract {
-    struct Item {
-        uint256 id;
-        string name;
-        address payable owner;
-        uint256 rentalPrice;
-        uint256 stock;
-    }
 
     struct Rental {
+        uint256 rentalId;
         uint256 itemId;
         string itemName;
-        address payable renter;
+        address renter;
         uint256 amount;
-        uint256 startTime;
+        uint256 startDate;
+        uint256 endDate;
         bool isReturned;
     }
 
-    uint256 private nextItemId;
-    mapping (uint256 => Item) private items;
-    mapping (uint256 => Rental) private rentals;
-
-    event ItemListed(uint256 itemId, string name, uint256 rentalPrice, uint256 stock);
-    event ItemRented(uint256 itemId, address renter);
-    event ItemReturned(uint256 itemId, address renter);
-    event OwnerConfirmedReturn(uint256 itemId, address owner);
-
-    function listItem(string memory _name, uint256 _rentalPrice, uint256 _stock) public {
-        require(_rentalPrice > 0, "Rental price must be greater than 0");
-        require(_stock > 0, "Stock must be greater than 0");
-        
-        items[nextItemId] = Item({
-            id: nextItemId,
-            name: _name,
-            stock: _stock,
-            owner: payable(msg.sender),
-            rentalPrice: _rentalPrice
-        });
-
-        emit ItemListed(nextItemId, _name, _rentalPrice, _stock);
-        nextItemId++;
+    struct Item {
+        uint256 id;
+        string name;
+        uint256 stock;
     }
 
-    function rentItem(uint256 _itemId, uint256 _amount) public payable  {
+    uint256 private nextRentalId;
+    mapping (uint256 => Rental) private rentals;
+    mapping (uint256 => Item) private items;
+
+    event RentalCreated(
+        uint256 indexed rentalId,
+        uint256 indexed itemId,
+        address indexed renter,
+        string itemName,
+        uint256 amount,
+        uint256 startDate,
+        uint256 endDate
+    );
+
+    function addItem(uint256 _itemId, string memory _name, uint256 _stock) external {
+        require(items[_itemId].id == 0, "Item already exist");
+        items[_itemId] = Item({id: _itemId, name: _name, stock: _stock});
+    }
+
+    function changeItemName(uint256 _itemId, string memory _name) external {
+        require(items[_itemId].id != 0, "Item not found");
+        items[_itemId].name = _name;
+    }
+
+    function addItemStock(uint256 _itemId, uint256 _addedAmount) external {
+        require(items[_itemId].id != 0, "Item not found");
+        items[_itemId].stock += _addedAmount;
+    }
+    
+    function reduceItemStock(uint256 _itemId, uint256 _reducedAmount) external {
+        require(items[_itemId].id != 0, "Item not found");
+        items[_itemId].stock -= _reducedAmount;
+    }
+
+    function createRental(uint256 _itemId, uint256 _amount, uint256 _startDate, uint256 _endDate) external {
         Item storage item = items[_itemId];
-        require(item.id != 0, "Item does not exist");
-        require(msg.value == item.rentalPrice, "Incorrect rental price");
-        require(item.owner != msg.sender, "Owner can not rent its item");
-        require(item.stock > 0, "Item is out of stock");
-        require(item.stock >= _amount, "Not enough item to rent");
+        require(_startDate < _endDate, "Start time must be before end time");
+        require(item.id != 0, "Item not found");
+        require(item.stock >= _amount, "Not enough stock");
 
         item.stock -= _amount;
-            
-        rentals[_itemId] = Rental({
+
+        rentals[nextRentalId] = Rental({
+            rentalId: nextRentalId,
             itemId: _itemId,
+            renter: msg.sender,
             itemName: item.name,
-            renter: payable(msg.sender),
-            startTime: block.timestamp,
             amount: _amount,
+            startDate: _startDate,
+            endDate: _endDate,
             isReturned: false
         });
 
-        item.owner.transfer(msg.value);
-
-        emit ItemRented(_itemId, msg.sender);
+        emit RentalCreated(nextRentalId, _itemId, msg.sender, item.name, _amount, _startDate, _endDate);
+        nextRentalId++;
     }
 
-    function returnItem(uint256 _itemId, uint256 _amount) public {
-        Rental storage rental = rentals[_itemId];
-        require(rental.itemId != 0, "Rental does not exist");
-        require(rental.renter == msg.sender, "Only renter can return the item");
-        require(!rental.isReturned, "Item already returned");
-        require(rental.amount == _amount, "Must return all amount of item rented");
-
-        rental.isReturned = true;
-
-        emit ItemReturned(_itemId, msg.sender);
-    }
-
-    function confirmReturn(uint256 _itemId) public {
-        Item storage item = items[_itemId];
-        require(item.id != 0, "Item does not exist");
-        require(item.owner == msg.sender, "Only owner can confirm return");
-        require(rentals[_itemId].isReturned, "Item has not been returned");
-
-        emit OwnerConfirmedReturn(_itemId, msg.sender);
-    }
-
-    function getRentals() external view returns (
-        uint256[] memory itemIds,
-        string[] memory itemNames,
-        address[] memory renters,
-        uint256[] memory amounts,
-        uint256[] memory startTimes,
-        bool[] memory isReturned
+    function getRental(uint256 _rentalId) external view returns (
+        uint256 rentalId,
+        uint256 itemId,
+        address renter,
+        string memory itemName,
+        uint256 amount,
+        uint256 startDate,
+        uint256 endDate,
+        bool isReturneds
     ) {
-        uint256 totalItems = nextItemId;
-        uint256[] memory rentalItemIds = new uint256[](totalItems);
-        string[] memory rentalItemNames = new string[](totalItems);
-        address[] memory rentalRenters = new address[](totalItems);
-        uint256[] memory rentalAmounts = new uint256[](totalItems);
-        uint256[] memory rentalStartTimes = new uint256[](totalItems);
-        bool[] memory rentalIsReturned = new bool[](totalItems);
+        Rental storage rental = rentals[_rentalId];
+        require(rental.rentalId != 0, "Rental not found");
+        require(rental.renter != address(0), "Rental transaction not found");
+
+        return (
+            rental.rentalId,
+            rental.itemId,
+            rental.renter,
+            rental.itemName,
+            rental.amount,
+            rental.startDate,
+            rental.endDate,
+            rental.isReturned
+        );
+    }
+
+    function getListRental() external view returns (
+        uint256[] memory rentalIds,
+        uint256[] memory itemIds,
+        address[] memory renters,
+        string[] memory itemNames,
+        uint256[] memory amounts,
+        uint256[] memory startDates,
+        uint256[] memory endDates,
+        bool[] memory rentIsReturneds
+    ) {
+        uint256 totalItems = nextRentalId;
+
+        uint256[] memory rentRentalIds = new uint256[](totalItems);
+        uint256[] memory rentItemIds = new uint256[](totalItems);
+        address[] memory rentRenters = new address[](totalItems);
+        string[] memory rentItemNames = new string[](totalItems);
+        uint256[] memory rentAmounts = new uint256[](totalItems);
+        uint256[] memory rentStartDates = new uint256[](totalItems);
+        uint256[] memory rentEndDate = new uint256[](totalItems);
+        bool[] memory rentIsReturned = new bool[](totalItems);
 
         for (uint256 i = 0; i < totalItems; i++) {
-            rentalItemIds[i] = rentals[i].itemId;
-            rentalItemNames[i] = rentals[i].itemName;
-            rentalRenters[i] = rentals[i].renter;
-            rentalAmounts[i] = rentals[i].amount;
-            rentalStartTimes[i] = rentals[i].startTime;
-            rentalIsReturned[i] = rentals[i].isReturned;
+            rentRentalIds[i] = rentals[i].rentalId;
+            rentItemIds[i] = rentals[i].itemId;
+            rentRenters[i] = rentals[i].renter;
+            rentItemNames[i] = rentals[i].itemName;
+            rentAmounts[i] = rentals[i].amount;
+            rentStartDates[i] = rentals[i].startDate;
+            rentEndDate[i] = rentals[i].endDate;
+            rentIsReturned[i] = rentals[i].isReturned;
         }
 
-        return (rentalItemIds, rentalItemNames, rentalRenters, rentalAmounts, rentalStartTimes, rentalIsReturned);
+        return (rentalIds, rentItemIds, rentRenters, rentItemNames, rentAmounts, rentStartDates, rentEndDate, rentIsReturned);
+    }
+
+    function completeRental(uint256 _rentalId) external {
+        Rental storage rental = rentals[_rentalId];
+        require(rental.renter != address(0), "Rental transaction not found");
+
+        items[rental.itemId].stock += rental.amount;
+
+        rental.isReturned = true;
+    }
+
+    function isReturned(uint256 _rentalId) external view returns (bool) {
+        return rentals[_rentalId].isReturned;
+    }
+
+    function getStock(uint256 _itemId) external view returns (uint256) {
+        return items[_itemId].stock;
     }
 }
