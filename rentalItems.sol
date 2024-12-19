@@ -54,6 +54,11 @@ contract RentalContract {
         items[_itemId].stock -= _reducedAmount;
     }
 
+    function deleteItem(uint256 _itemId) external {
+        require(items[_itemId].id != 0, "Item not found");
+        delete items[_itemId];
+    }
+
     function createRental(uint256 _itemId, uint256 _amount, uint256 _startDate, uint256 _endDate) external {
         Item storage item = items[_itemId];
         require(_startDate < _endDate, "Start time must be before end time");
