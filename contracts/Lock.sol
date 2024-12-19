@@ -108,39 +108,15 @@ contract RentalContract {
         );
     }
 
-    function getListRental() external view returns (
-        uint256[] memory rentalIds,
-        uint256[] memory itemIds,
-        address[] memory renters,
-        string[] memory itemNames,
-        uint256[] memory amounts,
-        uint256[] memory startDates,
-        uint256[] memory endDates,
-        bool[] memory rentIsReturneds
-    ) {
+    function getListRental() external view returns (Rental[] memory) {
         uint256 totalItems = nextRentalId;
-
-        uint256[] memory rentRentalIds = new uint256[](totalItems);
-        uint256[] memory rentItemIds = new uint256[](totalItems);
-        address[] memory rentRenters = new address[](totalItems);
-        string[] memory rentItemNames = new string[](totalItems);
-        uint256[] memory rentAmounts = new uint256[](totalItems);
-        uint256[] memory rentStartDates = new uint256[](totalItems);
-        uint256[] memory rentEndDate = new uint256[](totalItems);
-        bool[] memory rentIsReturned = new bool[](totalItems);
+        Rental[] memory rentalList = new Rental[](totalItems);
 
         for (uint256 i = 0; i < totalItems; i++) {
-            rentRentalIds[i] = rentals[i].rentalId;
-            rentItemIds[i] = rentals[i].itemId;
-            rentRenters[i] = rentals[i].renter;
-            rentItemNames[i] = rentals[i].itemName;
-            rentAmounts[i] = rentals[i].amount;
-            rentStartDates[i] = rentals[i].startDate;
-            rentEndDate[i] = rentals[i].endDate;
-            rentIsReturned[i] = rentals[i].isReturned;
+            rentalList[i] = rentals[i];
         }
 
-        return (rentalIds, rentItemIds, rentRenters, rentItemNames, rentAmounts, rentStartDates, rentEndDate, rentIsReturned);
+        return rentalList;
     }
 
     function completeRental(uint256 _rentalId) external {
